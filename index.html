@@ -1,0 +1,226 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Instagram Kiosk</title>
+<style>
+:root{--u:min(1vw,.5625vh);--accent:#ff4d8d;--accent2:#ffa24d}
+*{box-sizing:border-box;margin:0;padding:0}
+html,body{height:100%;background:#000;overflow:hidden;cursor:none;font-family:-apple-system,"Segoe UI",Roboto,"Helvetica Neue",Arial,sans-serif;-webkit-font-smoothing:antialiased}
+.app{position:relative;height:100vh;width:min(100vw,56.25vh);margin:0 auto;display:flex;flex-direction:column;color:#fff;overflow:hidden;
+  background:radial-gradient(120% 60% at 50% 0%,#2a1530 0%,#0c0b12 60%,#07070a 100%)}
+.hd{display:flex;align-items:center;gap:calc(var(--u)*3);padding:calc(var(--u)*5) calc(var(--u)*5) calc(var(--u)*3)}
+.av{width:calc(var(--u)*10);height:calc(var(--u)*10);border-radius:50%;padding:calc(var(--u)*.7);background:linear-gradient(45deg,var(--accent2),var(--accent),#9b3dff);flex:none}
+.av img{width:100%;height:100%;border-radius:50%;object-fit:cover;border:calc(var(--u)*.5) solid #0c0b12;display:block;background:#222}
+.who{min-width:0;flex:1}
+.name{font-size:calc(var(--u)*3.8);font-weight:700;letter-spacing:.2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.sub{font-size:calc(var(--u)*2.5);opacity:.6;margin-top:calc(var(--u)*.5)}
+.count{font-size:calc(var(--u)*2.8);font-weight:600;padding:calc(var(--u)*1.2) calc(var(--u)*2.6);border-radius:99px;background:rgba(255,255,255,.1);font-variant-numeric:tabular-nums}
+.stage{position:relative;flex:1;min-height:0;margin:0 calc(var(--u)*4);border-radius:calc(var(--u)*3.5);overflow:hidden;background:#111;box-shadow:0 calc(var(--u)*2) calc(var(--u)*8) rgba(0,0,0,.6)}
+.stage::before{content:"";position:absolute;left:0;right:0;top:0;height:calc(var(--u)*12);background:linear-gradient(rgba(0,0,0,.5),transparent);z-index:4;pointer-events:none}
+.layer{position:absolute;inset:0;opacity:0;transition:opacity .9s ease}
+.layer.in{opacity:1}
+.layer .bg{position:absolute;inset:-10%;width:120%;height:120%;object-fit:cover;filter:blur(calc(var(--u)*4)) brightness(.55) saturate(1.3)}
+.layer .fg{position:absolute;inset:0;width:100%;height:100%;object-fit:contain;animation:kb var(--d,6s) linear forwards}
+.layer video.fg{animation:none}
+@keyframes kb{from{transform:scale(1)}to{transform:scale(1.05)}}
+.segs{position:absolute;top:calc(var(--u)*2.5);left:calc(var(--u)*3);right:calc(var(--u)*3);display:flex;gap:calc(var(--u)*1.2);z-index:5}
+.seg{flex:1;height:calc(var(--u)*.9);border-radius:99px;background:rgba(255,255,255,.3);overflow:hidden}
+.seg i{display:block;height:100%;width:0;background:#fff;border-radius:99px}
+.badge{position:absolute;right:calc(var(--u)*3);bottom:calc(var(--u)*3);z-index:5;font-size:calc(var(--u)*2.4);font-weight:600;padding:calc(var(--u)*.8) calc(var(--u)*2);border-radius:99px;background:rgba(0,0,0,.55);backdrop-filter:blur(6px);font-variant-numeric:tabular-nums}
+.cap{padding:calc(var(--u)*4) calc(var(--u)*6) calc(var(--u)*1);min-height:calc(var(--u)*38);transition:opacity .5s}
+.cap.out{opacity:0}
+.meta{display:flex;align-items:center;gap:calc(var(--u)*4);font-size:calc(var(--u)*2.7);opacity:.75}
+.meta span{display:inline-flex;align-items:center;gap:calc(var(--u)*1.2)}
+.meta svg{width:calc(var(--u)*3.2);height:calc(var(--u)*3.2);fill:var(--accent)}
+.meta .date{margin-left:auto;opacity:.8}
+.text{margin-top:calc(var(--u)*2.5);font-size:calc(var(--u)*3.6);line-height:1.42;font-weight:500;white-space:pre-wrap;display:-webkit-box;-webkit-box-orient:vertical;-webkit-line-clamp:6;line-clamp:6;overflow:hidden;overflow-wrap:anywhere}
+.dots{display:flex;justify-content:center;gap:calc(var(--u)*1.5);padding:calc(var(--u)*2) 0 calc(var(--u)*4.5)}
+.dot{width:calc(var(--u)*1.6);height:calc(var(--u)*1.6);border-radius:99px;background:rgba(255,255,255,.28);transition:all .4s}
+.dot.on{width:calc(var(--u)*5);background:linear-gradient(90deg,var(--accent2),var(--accent))}
+.msg{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;text-align:center;padding:calc(var(--u)*10);font-size:calc(var(--u)*4);opacity:.7;z-index:10;background:#07070a;transition:opacity .6s}
+.msg.hide{opacity:0;pointer-events:none}
+</style>
+</head>
+<body>
+<div class="app" id="app">
+  <div class="hd">
+    <div class="av"><img id="avatar" alt=""></div>
+    <div class="who"><div class="name" id="uname"></div><div class="sub">Latest posts</div></div>
+    <div class="count" id="count"></div>
+  </div>
+  <div class="stage" id="stage"><div class="segs" id="segs"></div><div class="badge" id="badge" hidden></div></div>
+  <div class="cap" id="cap">
+    <div class="meta">
+      <span id="likes"><svg viewBox="0 0 24 24"><path d="M12 21s-7.5-4.6-9.6-9.2C.9 8.4 2.6 5 6 5c2 0 3.4 1.1 4 2.2h.1C10.7 6.1 12.1 5 14 5c3.4 0 5.1 3.400 3.600 6.800C19.500 16.400 12 21 12 21z" transform="translate(.2 .3)"/></svg><b id="likeN"></b></span>
+      <span id="coms"><svg viewBox="0 0 24 24"><path d="M4 4h16a2 2 0 0 1 2 2v10a2 2 0 0 1-2 2H9l-5 4v-4a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2z"/></svg><b id="comN"></b></span>
+      <span class="date" id="date"></span>
+    </div>
+    <div class="text" id="text"></div>
+  </div>
+  <div class="dots" id="dots"></div>
+  <div class="msg" id="msg">Loading posts…</div>
+</div>
+
+<script>
+// ---------- Settings ----------
+const WIDGET_URL   = "https://n246.grip.space/api/v1/instagram/widget/24a6490a1dfcf62a785117daee85fecf";
+const SLIDE_MS     = 6000;   // time each image is shown
+const REFRESH_MIN  = 30;     // re-fetch posts (Instagram image links expire)
+// ------------------------------
+
+const $ = id => document.getElementById(id);
+let posts = [], p = 0, s = 0, slides = [], raf = 0, t0 = 0, dur = SLIDE_MS, fails = 0, curPost = -1, token = 0;
+
+// Grab the data from the embed script without needing its widget UI.
+function loadViaScript(){
+  return new Promise(res => {
+    let got = null;
+    const orig = Array.prototype.forEach;
+    Array.prototype.forEach = function(){
+      if(!got && this.length && this[0] && this[0].img && this[0].permalink) got = this.slice();
+      return orig.apply(this, arguments);
+    };
+    const box = document.createElement('div'); box.style.display = 'none';
+    document.body.appendChild(box);
+    const sc = document.createElement('script');
+    const done = () => {
+      Array.prototype.forEach = orig;
+      let user = '', avatar = '';
+      try{ user = (box.querySelector('.grip-ig-name')||{}).textContent || ''; const a = box.querySelector('img.grip-ig-avatar'); avatar = a ? a.src : ''; }catch(e){}
+      box.remove();
+      res(got ? {items: got, user, avatar} : null);
+    };
+    sc.onload = done; sc.onerror = done;
+    sc.src = WIDGET_URL + '?_=' + Date.now();
+    box.appendChild(sc);
+  });
+}
+async function loadViaFetch(){
+  try{
+    const t = await (await fetch(WIDGET_URL)).text();
+    const m = t.match(/var d = (\{[\s\S]*?\});\s*\n\s*var cur/);
+    if(!m) return null;
+    const d = JSON.parse(m[1]);
+    return {items: d.items, user: '@' + d.username, avatar: d.profile_picture_url};
+  }catch(e){ return null; }
+}
+async function getData(){
+  let r = await loadViaScript();
+  if(!r || !r.items.length) r = await loadViaFetch();
+  return r && r.items.length ? r : null;
+}
+
+const slidesOf = post => (post.pages && post.pages.length) ? post.pages : [{img: post.img, video: post.video, type: post.type}];
+const nextSlideRef = () => { const sl = slidesOf(posts[p]); return s + 1 < sl.length ? sl[s+1] : slidesOf(posts[(p+1)%posts.length])[0]; };
+
+function setCaption(post){
+  const cap = $('cap'); cap.classList.add('out');
+  setTimeout(() => {
+    $('text').textContent = post.caption || '';
+    $('likeN').textContent = post.like != null ? post.like : '';
+    $('comN').textContent = post.comments != null ? post.comments : '';
+    $('likes').style.display = post.like != null ? '' : 'none';
+    $('coms').style.display = post.comments != null ? '' : 'none';
+    $('date').textContent = post.ts ? new Date(post.ts*1000).toLocaleDateString(undefined,{year:'numeric',month:'long',day:'numeric'}) : '';
+    cap.classList.remove('out');
+  }, 450);
+  $('count').textContent = (p+1) + ' / ' + posts.length;
+  $('dots').innerHTML = posts.map((_, i) => '<div class="dot' + (i === p ? ' on' : '') + '"></div>').join('');
+}
+
+function buildSegs(){
+  const segs = $('segs'); segs.innerHTML = '';
+  $('badge').hidden = slides.length < 2;
+  if(slides.length < 2) return;
+  slides.forEach(() => segs.appendChild(document.createElement('div')).className = 'seg');
+  segs.querySelectorAll('.seg').forEach(x => x.appendChild(document.createElement('i')));
+}
+function fillSegs(frac){
+  const bars = $('segs').querySelectorAll('.seg i');
+  bars.forEach((b, i) => b.style.width = (i < s ? 100 : i === s ? frac*100 : 0) + '%');
+}
+
+function start(ms){
+  cancelAnimationFrame(raf); dur = ms; t0 = performance.now();
+  const tick = now => {
+    const el = now - t0;
+    fillSegs(Math.min(1, el/dur));
+    if(el >= dur) next(); else raf = requestAnimationFrame(tick);
+  };
+  raf = requestAnimationFrame(tick);
+}
+
+function go(pi, si){
+  cancelAnimationFrame(raf);
+  const post = posts[pi]; p = pi; s = si; slides = slidesOf(post);
+  if(curPost !== p){ curPost = p; setCaption(post); buildSegs(); }
+  if(slides.length > 1) $('badge').textContent = (s+1) + ' / ' + slides.length;
+  fillSegs(0);
+
+  const pg = slides[s], my = ++token, stage = $('stage');
+  const layer = document.createElement('div'); layer.className = 'layer';
+  const bg = new Image(); bg.className = 'bg'; bg.src = pg.img; bg.alt = ''; layer.appendChild(bg);
+  let fg, ready;
+  if(pg.video){
+    fg = document.createElement('video'); fg.className = 'fg';
+    fg.muted = true; fg.autoplay = true; fg.loop = true; fg.playsInline = true; fg.poster = pg.img; fg.src = pg.video;
+    ready = 'loadeddata';
+  } else {
+    fg = new Image(); fg.className = 'fg'; fg.alt = ''; fg.style.setProperty('--d', (SLIDE_MS/1000 + 1.5) + 's'); fg.src = pg.img;
+    ready = 'load';
+  }
+  layer.appendChild(fg);
+  stage.insertBefore(layer, $('segs'));
+
+  let shown = false;
+  const reveal = () => {
+    if(shown || my !== token) return; shown = true; fails = 0;
+    layer.classList.add('in');
+    stage.querySelectorAll('.layer').forEach(l => { if(l !== layer){ l.classList.remove('in'); setTimeout(() => l.remove(), 1000); } });
+    let ms = SLIDE_MS;
+    if(pg.video && isFinite(fg.duration) && fg.duration*1000 > SLIDE_MS) ms = Math.min(30000, fg.duration*1000 + 300);
+    start(ms);
+    const n = nextSlideRef(); if(n){ const pre = new Image(); pre.src = n.img; }
+  };
+  fg.addEventListener(ready, reveal);
+  fg.addEventListener('error', () => {
+    if(my !== token) return;
+    if(pg.video){ fg.remove(); const im = new Image(); im.className = 'fg'; im.src = pg.img; im.onload = reveal; im.onerror = fail; layer.appendChild(im); }
+    else fail();
+  });
+  if(pg.video) setTimeout(reveal, 3500);
+  function fail(){ if(my !== token) return; layer.remove(); if(++fails > 6) refresh(); else next(); }
+}
+
+function next(){
+  const sl = slidesOf(posts[p]);
+  if(s + 1 < sl.length) go(p, s+1); else go((p+1) % posts.length, 0);
+}
+function prev(){ if(s > 0) go(p, s-1); else go((p - 1 + posts.length) % posts.length, 0); }
+
+async function refresh(){
+  const r = await getData();
+  if(!r){ if(!posts.length){ $('msg').textContent = 'Couldn’t load posts. Retrying…'; setTimeout(refresh, 30000); } return; }
+  const cur = posts[p] && posts[p].permalink;
+  posts = r.items;
+  if(r.user) $('uname').textContent = r.user.startsWith('@') ? r.user : '@' + r.user;
+  if(r.avatar) $('avatar').src = r.avatar;
+  const i = posts.findIndex(x => x.permalink === cur);
+  if(!slides.length){ $('msg').classList.add('hide'); go(0, 0); }
+  else { p = i >= 0 ? i : 0; if(i < 0){ curPost = -1; go(0, 0); } else $('dots').innerHTML = posts.map((_, k) => '<div class="dot' + (k === p ? ' on' : '') + '"></div>').join(''); }
+}
+
+$('app').addEventListener('click', e => {
+  if(!posts.length) return;
+  const r = $('app').getBoundingClientRect(), x = (e.clientX - r.left) / r.width;
+  if(x < .35) prev(); else if(x > .65) next();
+});
+document.addEventListener('keydown', e => { if(!posts.length) return; if(e.key === 'ArrowRight') next(); if(e.key === 'ArrowLeft') prev(); });
+
+refresh();
+setInterval(refresh, REFRESH_MIN * 60000);
+</script>
+</body>
+</html>
